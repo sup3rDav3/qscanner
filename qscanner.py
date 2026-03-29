@@ -162,10 +162,24 @@ def check_ftp(host: str) -> dict:
         ftp.login("anonymous", "anonymous@example.com")
         result["anonymous_login"] = True
         try:
-            listing = ftp.nlst()
-            result["anonymous_note"] = f"Directory listing available ({len(listing)} items)"
-        except Exception:
-            result["anonymous_note"] = "Login succeeded but directory listing denied"
+            ftp.set_pasv(True)   # passive mode — avoids NAT/firewall issues
+            lines = []
+            ftp.dir(".", lines.append)
+            if lines:
+                # Filter out . and .. for the count but keep them in listing
+                visible = [l for l in lines if not l.endswith(" .") and not l.endswith(" ..")]
+                result["anonymous_note"] = f"Directory listing available ({len(visible)} items)"
+                result["dir_listing"] = lines
+            else:
+                # Try nlst as a fallback
+                names = ftp.nlst()
+                if names:
+                    result["anonymous_note"] = f"Directory listing available ({len(names)} items)"
+                    result["dir_listing"] = names
+                else:
+                    result["anonymous_note"] = "Login succeeded — directory is empty or listing blocked"
+        except Exception as e:
+            result["anonymous_note"] = f"Login succeeded but listing failed: {str(e)[:60]}"
         ftp.quit()
     except ftplib.error_perm as e:
         result["anonymous_note"] = f"Rejected: {str(e)[:60]}"
@@ -336,11 +350,18 @@ def print_port_result(r: dict) -> None:
         print(f"           {DIM}Banner : {banner_.splitlines()[0][:78]}{RST}")
 
     if port == 21 and details:
-        anon = details.get("anonymous_login", False)
-        note = details.get("anonymous_note", "")
+        anon    = details.get("anonymous_login", False)
+        note    = details.get("anonymous_note", "")
+        listing = details.get("dir_listing", [])
         if anon:
             print(f"           {R}[!] Anonymous FTP login ALLOWED{RST}")
             print(f"           {R}    {note}{RST}")
+            if listing:
+                print(f"           {DIM}    Directory contents:{RST}")
+                for entry in listing[:10]:   # cap at 10 lines
+                    print(f"           {DIM}      {entry}{RST}")
+                if len(listing) > 10:
+                    print(f"           {DIM}      ... and {len(listing) - 10} more{RST}")
         else:
             print(f"           {G}[+] Anonymous FTP login denied{RST}")
             if note:
