@@ -14,7 +14,8 @@ Pre-scan pipeline (per host):
 Changes vs v1:
   • FTP anonymous-login findings now appear in the final risk summary
     (with the directory-listing note, e.g. "12 items exposed")
-  • Hosts are scanned in parallel — hosts take ~¼ of the original time (way faster)
+  • Hosts are scanned in parallel — 95 hosts take ~¼ of the original time
+  • Risk summary shows severity levels: CRITICAL / HIGH / MEDIUM
 
 Usage:
   python3 qscanner.py 192.168.1.100          # single host
